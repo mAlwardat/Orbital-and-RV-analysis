@@ -573,8 +573,9 @@ def fitorb(rms_only=False):
     normchi2 = [sd[j] / ndat[j] if ndat[j] > 0 else 0 for j in range(4)]
     wrms = [np.sqrt(sd[j] / wsum[j]) if wsum[j] > 0 else 0 for j in range(4)]
 
-    print(f"CHI2/N: {normchi2}")
-    print(f"RMS (Theta, rho, RV1, RV2): {wrms}")
+    print("CHI2/N:", [f"{val:.4f}" for val in normchi2])
+    formatted = ", ".join(f"{val:.4f}" for val in wrms)
+    print(f"RMS (Theta, rho, RV1, RV2): {formatted}")
     print("\nFitted Parameters and Errors:")
     for i, idx in enumerate(selfit):
         print(f"{orb.elname[idx]:<5}: {orb.el[idx]:>10.4f} ± {orb.elerr[idx]:.4f}")
