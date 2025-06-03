@@ -12,9 +12,9 @@ import matplotlib.pyplot as plt
 from scipy.optimize import least_squares
 import pandas as pd
 import os
-import tkinter as tk
-from tkinter import filedialog, messagebox, ttk
-from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
+#import tkinter as tk
+#from tkinter import filedialog, messagebox, ttk
+#from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 import streamlit as st
 
 
@@ -718,7 +718,7 @@ def orbsave():
 
 # --- Local GUI Interface using Tkinter ---
 
-
+'''
 def run_gui():
     def upload_and_run():
         file_path = filedialog.askopenfilename(filetypes=[("Input files", "*.inp")])
@@ -936,3 +936,4 @@ def run_fit():
 
 if __name__ == "__main__":
     run_gui()
+    '''
