@@ -12,6 +12,9 @@ import matplotlib.pyplot as plt
 from scipy.optimize import least_squares
 import pandas as pd
 import os
+import tkinter as tk
+from tkinter import filedialog, messagebox, ttk
+from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 import streamlit as st
 
 
@@ -716,14 +719,145 @@ def orbsave():
 # --- Local GUI Interface using Tkinter ---
 
 
+def run_gui():
+    def upload_and_run():
+        file_path = filedialog.askopenfilename(filetypes=[("Input files", "*.inp")])
+        if not file_path:
+            return
+        try:
+            readinp(file_path)
 
+            # Fix parameters if no RV data
+            if orb.obj['nrv1'] == 0 and orb.obj['nrv2'] == 0:
+                orb.fixel[7:10] = 0  # Fix K1, K2, V0
+                orb.fixel[4:7] = 0   # Fix W, w, i optionally for more stability
+                print("No RV data: fixing K1, K2, V0, W, w, i")
 
-#
+            fitorb()
+            orbsave()
+            messagebox.showinfo("Success", "Fitting completed and results saved.")
+        except Exception as e:
+            messagebox.showerror("Error", str(e))
+
+    root = tk.Tk()
+    root.title("Orbital Fitting Tool")
+    root.geometry("400x150")
+
+    label = tk.Label(root, text="Upload .inp file for orbital fitting", pady=10)
+    label.pack()
+
+    button = tk.Button(root, text="Upload and Fit", command=upload_and_run)
+    button.pack(pady=10)
+
+    root.mainloop()
+
+#if __name__ == "__main__":
+#    run_gui()
 
 # --- Advanced Local GUI Interface using Tkinter ---
 
 
+class RedirectText(io.StringIO):
+    def __init__(self, text_widget):
+        super().__init__()
+        self.text_widget = text_widget
 
+    def write(self, string):
+        self.text_widget.insert(tk.END, string)
+        self.text_widget.see(tk.END)
+
+    def flush(self):
+        pass
+
+def run_gui():
+    class RedirectText(io.StringIO):
+        def __init__(self, text_widget):
+            super().__init__()
+            self.text_widget = text_widget
+
+        def write(self, string):
+            self.text_widget.insert(tk.END, string)
+            self.text_widget.see(tk.END)
+            self.text_widget.update_idletasks()  # Ensure update
+
+        def flush(self):
+            pass
+
+    def upload_file():
+        path = filedialog.askopenfilename(filetypes=[("Input files", "*.inp")])
+        if path:
+            file_entry.delete(0, tk.END)
+            file_entry.insert(0, path)
+
+    def update_fixel_checkboxes():
+        for i, var in enumerate(fixel_vars):
+            orb.fixel[i] = var.get()
+
+    def run_fit():
+        file_path = file_entry.get()
+        if not os.path.isfile(file_path):
+            messagebox.showerror("Error", "Invalid file path.")
+            return
+        try:
+            output_text.delete("1.0", tk.END)  # Clear previous output
+
+            # Redirect stdout
+            redirector = RedirectText(output_text)
+            sys.stdout = redirector
+            sys.stderr = redirector
+
+            readinp(file_path)
+            update_fixel_checkboxes()
+            fitorb()
+            orbsave()
+
+            print("\nFitting completed successfully.\n")
+
+        except Exception as e:
+            print(f"\n❌ Error: {str(e)}")
+            messagebox.showerror("Error", str(e))
+        finally:
+            sys.stdout = sys.__stdout__  # Reset to default
+            sys.stderr = sys.__stderr__
+
+    root = tk.Tk()
+    root.title("Advanced Orbital Fitting Tool")
+    root.geometry("800x600")
+
+    # File selection
+    tk.Label(root, text="Select .inp File:").pack(pady=5)
+    file_frame = tk.Frame(root)
+    file_entry = tk.Entry(file_frame, width=60)
+    file_entry.pack(side=tk.LEFT, padx=5)
+    browse_button = tk.Button(file_frame, text="Browse", command=upload_file)
+    browse_button.pack(side=tk.LEFT)
+    file_frame.pack()
+
+    # Fix element toggles
+    tk.Label(root, text="Fix Parameters During Fit:").pack(pady=5)
+    fixel_frame = tk.Frame(root)
+    fixel_vars = []
+    elnames = ['P', 'T', 'e', 'a', 'W', 'w', 'i', 'K1', 'K2', 'V0']
+    for name in elnames:
+        var = tk.IntVar(value=1)
+        cb = tk.Checkbutton(fixel_frame, text=name, variable=var)
+        cb.pack(side=tk.LEFT)
+        fixel_vars.append(var)
+    fixel_frame.pack()
+
+    # Buttons
+    button_frame = tk.Frame(root)
+    run_button = tk.Button(button_frame, text="Run Fitting and Save", command=run_fit, bg='green', fg='white')
+    exit_button = tk.Button(button_frame, text="Exit", command=root.quit, bg='red', fg='white')
+    run_button.pack(side=tk.LEFT, padx=10)
+    exit_button.pack(side=tk.LEFT, padx=10)
+    button_frame.pack(pady=15)
+
+    # Output display box
+    output_text = tk.Text(root, height=20, width=100, wrap=tk.WORD)
+    output_text.pack(pady=10)
+
+    root.mainloop()
 
 
 def run_fit():
@@ -800,64 +934,5 @@ def run_fit():
     button_frame.pack(pady=15)
     root.mainloop()
 
-
-
-
-import streamlit as st
-import os
-import sys
-import io
-
-# Redirect stdout to Streamlit console
-class StreamlitRedirect(io.StringIO):
-    def __init__(self):
-        super().__init__()
-        self.output = ""
-
-    def write(self, string):
-        self.output += string
-
-    def flush(self):
-        pass
-
-st.title("Binary Star Orbital Fitting Tool")
-
-inp_file = st.file_uploader("Upload .inp file", type=["inp"])
-
-elnames = ['P', 'T', 'e', 'a', 'W', 'w', 'i', 'K1', 'K2', 'V0']
-fix_options = {}
-st.subheader("Fix Parameters During Fit")
-for i, name in enumerate(elnames):
-    fix_options[name] = st.checkbox(f"Fix {name}", value=True)
-
-if st.button("Run Fitting and Save"):
-    if inp_file:
-        temp_path = f"temp_{inp_file.name}"
-        with open(temp_path, "wb") as f:
-            f.write(inp_file.read())
-
-        for i, name in enumerate(elnames):
-            orb.fixel[i] = int(fix_options[name])
-
-        redirect = StreamlitRedirect()
-        sys.stdout = redirect
-        sys.stderr = redirect
-
-        try:
-            readinp(temp_path)
-            fitorb()
-            orbsave()
-            st.success("Fitting completed and results saved.")
-        except Exception as e:
-            st.error(f"Error: {str(e)}")
-        finally:
-            sys.stdout = sys.__stdout__
-            sys.stderr = sys.__stderr__
-            os.remove(temp_path)
-
-        st.text_area("Console Output", value=redirect.output, height=300)
-        figs = orbplot_streamlit()
-        for fig in figs:
-            st.pyplot(fig)
-    else:
-        st.warning("Please upload a .inp file.")
+if __name__ == "__main__":
+    run_gui()
